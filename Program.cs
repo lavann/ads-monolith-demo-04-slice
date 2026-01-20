@@ -5,7 +5,7 @@ using RetailMonolith.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DB — localdb for hack; swap to SQL in appsettings for Azure
+// DB ï¿½ localdb for hack; swap to SQL in appsettings for Azure
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ??
                    "Server=(localdb)\\MSSQLLocalDB;Database=RetailMonolith;Trusted_Connection=True;MultipleActiveResultSets=true"));
@@ -20,12 +20,15 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// auto-migrate & seed (hack convenience)
-using (var scope = app.Services.CreateScope())
+// auto-migrate & seed (hack convenience) - skip in test environment
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
-    await AppDbContext.SeedAsync(db); // seed the database
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.MigrateAsync();
+        await AppDbContext.SeedAsync(db); // seed the database
+    }
 }
 
 
@@ -46,8 +49,11 @@ app.UseAuthorization();
 
 app.MapRazorPages();
 
+// Health check endpoint
+app.MapHealthChecks("/health");
 
-// minimal APIs for the “decomp” path
+
+// minimal APIs for the ï¿½decompï¿½ path
 app.MapPost("/api/checkout", async (ICheckoutService svc) =>
 {
     var order = await svc.CheckoutAsync("guest", "tok_test");
@@ -64,3 +70,6 @@ app.MapGet("/api/orders/{id:int}", async (int id, AppDbContext db) =>
 
 
 app.Run();
+
+// Make Program accessible to integration tests
+public partial class Program { }
